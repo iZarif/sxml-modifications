@@ -1,0 +1,4 @@
+(repo git "git://github.com/iZarif/sxml-modifications.git")
+
+(uri targz "https://codeload.github.com/iZarif/sxml-modifications/tar.gz/0.2")
+(release "0.2")

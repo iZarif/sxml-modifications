@@ -1,0 +1,12 @@
+;;; sxml-modifications.meta -*- Scheme -*-
+
+((synopsis
+   "The sxml-modification bits of sxml-tools from the SSAX project at Sourceforge")
+ (author "Dmitry Lizorkin")
+ (version "0.2")
+ (maintainer "Aydar Zarifullin")
+ (license "Public Domain")
+ (dependencies sxpath)
+ (test-dependencies test)
+ (category xml)
+ (components (extension sxml-modifications)))

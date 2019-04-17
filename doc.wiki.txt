@@ -1,0 +1,217 @@
+[[tags:eggs]]
+
+This is version 0.2 of the '''sxml-modifications''' extension library for Chicken Scheme.
+
+[[toc:]]
+
+== Sxml-modifications
+
+The {{modif}} parts of the [[http://cvs.sourceforge.net/viewcvs.py/ssax/sxml-tools/|sxml-tools]] from the [[http://ssax.sf.net|SSAX project]] at Sourceforge.
+
+== Requirements
+
+The [[sxpath]] egg.
+
+== Documentation
+
+This egg provides procedures for making modifications to SXML
+documents, functional-style.
+
+Some documentation is available in
+[[http://modis.ispras.ru/Lizorkin/sxml-tutorial.html#hevea:modif|Dmitry
+Lizorkin's tutorial]] and the [[http://ssax.sf.net|SSAX homepage]].
+Note that the SSAX documentation uses the more awkward and arbitrary
+{{sxml:}} or {{modif:}} prefixes.
+
+The initial documentation on this wiki page came straight from the
+comments in the extremely well-documented source code. It's
+recommended you read the code if you want to learn more.
+
+Modifications are done to all nodes that match an xpath expression.
+These can be either textual "standard" XPath or [[sxpath]]
+expressions.
+
+<procedure>(modify [update-specifier ...])</procedure>
+
+Returns a procedure which accepts a document and returns a modified
+copy of this document.  How it will be modified depends on the
+{{update-specifier}}s passed to it.  Each update-specifier is a list
+of two or three elements:
+
+  update-specifier ::= (xpath-location-path  action  [action-parameter ...])
+
+{{xpath-location-path}} addresses the node(s) to be transformed, in
+the form of an XPath location path. If the location path is absolute,
+it addresses the node(s) with respect to the root of the document
+being transformed. If the location path is relative, it addresses the
+node(s) with respect to the node selected by the previous
+update-specifier. The location path in the first update-specifier
+always addresses the node(s) with respect to the root of the
+document. We'll further refer to the node with respect of which the
+location path is evaluated as to the base-node for this location path.
+
+{{action}} specifies the modification to be made over each of the
+node(s) addressed by the location path. Possible actions are described
+below.
+
+{{action-parameter}}s are additional parameters supplied for the
+action. The number of parameters and their semantics depend on the
+definite action.
+
+Each {{action}} is either a symbol that describes what to do, or a
+handler lambda which performs the action itself.  The allowed symbols
+are as follows:
+
+; {{delete}} : deletes the node. Expects no action-parameters
+; {{delete-undeep}} : deletes the node, but keeps all its content (which thus moves to one level upwards in the document tree). Expects no action-parameters.
+; {{insert-into}} : inserts the new node(s) as the last children of the given node. The new node(s) are specified in SXML as action-parameters.
+; {{insert-following}}, {{insert-preceding}} : inserts the new node(s) after (before) the given node. Action-parameters are the same as for {{insert-into}}.
+; {{replace}} : replaces the given node with the new node(s). Action-parameters are the same as for {{insert-into}}.
+; {{rename}} : renames the given node. The node to be renamed must be a pair (i.e. not a text node). A single action-parameter is expected, which is to be a Scheme symbol to specify the new name of the given node.
+; {{move-into}} : moves the given node to a new location. The single action-parameter is the location path, which addresses the new location with respect to the given node as the base node. The given node becomes the last child of the node selected by the parameter location path.
+; {{move-following}}, {{move-preceding}} : the given node is moved to the location respectively after (before) the node selected by the parameter location path.
+
+If a handler is passed, it should look like {{(lambda (node context base-node) ...)}}.
+The {{node}} is the current target of the {{xpath-location-path}} in the current
+update specifier.  {{context}} is a list that consists of the symbol {{*CONTEXT*}}, followed by
+the current node and all its ancestors that were looked at during the XPath matching process
+(as per [[sxpath]]'s {{context-sxpath}} module).  {{base-node}} is the node that was used
+as the starting point for the current {{xpath-location-path}} (useful if it's a relative
+path; you can "see" the previous update specifier's node this way).
+
+The handler can return either an SXML node, which will then replace
+the source document's node, or a nodeset (list of nodes), in which
+case it will splice this set into the place occupied by the source
+node.  If an empty nodeset -- ie, {{'()}} -- is returned, this has the
+effect of deleting the source node.
+
+Example:
+
+<enscript highlight="scheme">
+(import (prefix sxml-modifications sxmlm:))
+
+(define doc
+  '(*TOP*
+    (*PI* xml "version='1.0'")
+    (purchaseOrder (@ (orderDate "07.23.2001"))
+      (recipient
+        (name "Dennis Scannell")
+        (street "175 Perry Lea Side Road"))
+      (order
+        (cd (@ (title "Little Lion") (artist "Brooks Williams")))))))
+
+(define delete-recipient (sxmlm:modify '("purchaseOrder/recipient" delete)))
+(delete-recipient doc)
+=>
+(*TOP*
+ (*PI* xml "version='1.0'")
+ (purchaseOrder (@ (orderDate "07.23.2001"))
+   ;; (recipient ...) is gone
+   (order
+     (cd (@ (title "Little Lion") (artist "Brooks Williams"))))))
+
+;; insert-into accepts any number of action-parameters, being the node(s) to insert at the end
+((sxmlm:modify '("purchaseOrder/recipient" insert-into (postalCode "05676") (city "Footown"))) doc)
+=>
+(*TOP*
+ (*PI* xml "version='1.0'")
+ (purchaseOrder (@ (orderDate "07.23.2001"))
+   (recipient
+     (name "Dennis Scannell")
+     (street "175 Perry Lea Side Road")
+     (postalCode "05676") ; New
+     (city "Footown"))    ; New
+   (order
+     (cd (@ (title "Little Lion") (artist "Brooks Williams"))))))
+</enscript>
+
+<procedure>(modify! [update-specifier ...])</procedure>
+
+Destructively updating version of {{modify}}.  Like the
+linear-updating variants of SRFI-1, you should use the return value of
+this procedure rather than assuming the original document was mutated
+in-place.
+
+<procedure>(insert-following node-specifier)</procedure>
+<procedure>(insert-preceding node-specifier)</procedure>
+<procedure>(insert-into node-specifier)</procedure>
+<procedure>(rename new-name)</procedure>
+<procedure>delete</procedure>
+<procedure>delete-undeep</procedure>
+
+These procedures all correspond to the action symbols accepted by
+{{modify}}.  There are no procedures corresponding to
+{{move-into}}, {{move-preceding}}, {{move-following}} or {{replace}}.
+
+The {{delete}} and {{delete-undeep}} procedures can only be
+put directly into the action-parameters list as-is, which means this
+adds zero expressiveness over the corresponding symbols.
+
+The {{insert-following}}, {{insert-preceding}} and {{insert-into}}
+procedures all accept a {{node-specifier}} procedure of two arguments
+which must return a node or node-set which shall be inserted.  The
+first argument of the procedure is the context, the second is the base
+node.
+
+The {{rename}} procedure accepts a symbol which indicates the new
+element name to use for the matched nodes.
+
+Here's the example from {{modify}} using these procedures instead
+of action symbols:
+
+<enscript highlight="scheme">
+(prefix sxml-modifications sxmlm:)
+
+(define doc
+  '(*TOP*
+    (*PI* xml "version='1.0'")
+    (purchaseOrder (@ (orderDate "07.23.2001"))
+      (recipient
+        (name "Dennis Scannell")
+        (street "175 Perry Lea Side Road"))
+      (order
+        (cd (@ (title "Little Lion") (artist "Brooks Williams")))))))
+
+(define delete-recipient (sxmlm:modify `("purchaseOrder/recipient" ,sxmlm:delete)))
+(delete-recipient doc)
+=>
+(*TOP*
+ (*PI* xml "version='1.0'")
+ (purchaseOrder (@ (orderDate "07.23.2001"))
+   ;; (recipient ...) is gone
+   (order
+     (cd (@ (title "Little Lion") (artist "Brooks Williams"))))))
+
+;; insert-into accepts any number of action-parameters, being the node(s) to insert at the end
+((sxmlm:modify `("purchaseOrder/recipient"
+                ,(sxmlm:insert-into
+                  (lambda (context base-node)
+                    (list '(postalCode "05676") '(city "Footown"))))))
+ doc)
+=>
+(*TOP*
+ (*PI* xml "version='1.0'")
+ (purchaseOrder (@ (orderDate "07.23.2001"))
+   (recipient
+     (name "Dennis Scannell")
+     (street "175 Perry Lea Side Road")
+     (postalCode "05676") ; New
+     (city "Footown"))    ; New
+   (order
+     (cd (@ (title "Little Lion") (artist "Brooks Williams"))))))
+</enscript>
+
+== About this egg
+
+=== Author
+
+[[http://okmij.org/ftp/|Oleg Kiselyov]], [[http://metapaper.net/|Kirill Lisovsky]], [[http://modis.ispras.ru/Lizorkin/index.html|Dmitry Lizorkin]].
+
+=== Version history
+
+; 0.2 : Ported to Chicken 5
+; 0.1 : First Chicken 4 release
+
+=== License
+
+The sxml-tools are in the public domain.
