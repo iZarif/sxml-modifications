@@ -6,7 +6,7 @@
  (version "0.2")
  (maintainer "Aydar Zarifullin")
  (license "Public Domain")
- (dependencies sxpath)
+ (dependencies srfi-1 sxpath)
  (test-dependencies test)
  (category xml)
  (components (extension sxml-modifications)))
