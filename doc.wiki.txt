@@ -10,7 +10,8 @@ The {{modif}} parts of the [[http://cvs.sourceforge.net/viewcvs.py/ssax/sxml-too
 
 == Requirements
 
-The [[sxpath]] egg.
+* [[srfi-1]]
+* [[sxpath]]
 
 == Documentation
 
